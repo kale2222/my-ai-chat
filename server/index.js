@@ -53,7 +53,7 @@ const server = http.createServer((req, res) => {
         // 逐块读取 DeepSeek 的流，原封不动转发给前端
         for await (const chunk of deepseekResponse.body) {
           res.write(chunk); // 每次收到一块就转发，不等待
-          console.log("收到块:", new TextDecoder().decode(chunk)); // 验证用的
+          console.log("收到块:", new TextDecoder().decode(chunk, { stream: true }));
         }
 
         res.end(); // 流结束了
