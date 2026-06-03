@@ -31,7 +31,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [sessions, setSessions] = useState<Session[]>(() => {
     try {
       const saved = localStorage.getItem("chat-sessions");
-      return saved ? JSON.parse(saved) : [{ id: defaultSessionId, title: "新对话", messages: [] }];
+      return saved
+        ? JSON.parse(saved)
+        : [{ id: defaultSessionId, title: "新对话", messages: [] }];
     } catch {
       return [{ id: defaultSessionId, title: "新对话", messages: [] }];
     }
@@ -83,8 +85,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const handleSend = async (input: string) => {
     const userMessage: Message = { role: "user", content: input };
+    // 一次性插入用户消息 + AI 空占位，避免后续插入新消息时 UI 跳动
+    // 注意：newMessages 是发给后端的消息（不带空 AI 占位），界面上显示带占位
     const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    const assistantPlaceholder: Message = { role: "assistant", content: "" };
+    setMessages([...newMessages, assistantPlaceholder]);
     setIsLoading(true);
 
     const abortController = new AbortController();
@@ -109,15 +114,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const decoder = new TextDecoder();
 
       // ─── 消费者：每 50ms 从 renderBuffer 取 8 个字符渲染 ───
+      // 占位消息已经在发送时插入，这里只需要往最后一条追加 chunk
       const CHARS_PER_TICK = 8;
       let streamEnded = false;
-      let hasAssistantMessage = false;
 
       intervalRef.current = window.setInterval(() => {
         if (renderBufferRef.current.length === 0) {
           if (streamEnded) {
             clearInterval(intervalRef.current!);
             intervalRef.current = null;
+            setIsLoading(false); // 全部输出完才关掉 loading
           }
           return;
         }
@@ -125,24 +131,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const chunk = renderBufferRef.current.slice(0, CHARS_PER_TICK);
         renderBufferRef.current = renderBufferRef.current.slice(CHARS_PER_TICK);
 
-        if (!hasAssistantMessage) {
-          hasAssistantMessage = true;
-          setIsLoading(false);
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: chunk },
-          ]);
-        } else {
-          setMessages((prev) => {
-            if (prev.length === 0) return prev; // 安全守卫：切对话后 prev 可能为空
-            const next = [...prev];
-            next[next.length - 1] = {
-              ...next[next.length - 1],
-              content: next[next.length - 1].content + chunk,
-            };
-            return next;
-          });
-        }
+        setMessages((prev) => {
+          if (prev.length === 0) return prev; // 安全守卫：切对话后 prev 可能为空
+          const next = [...prev];
+          next[next.length - 1] = {
+            ...next[next.length - 1],
+            content: next[next.length - 1].content + chunk,
+          };
+          return next;
+        });
       }, 50);
 
       // ─── 生产者：读 SSE 流 → 解析 delta → 写入 renderBuffer ───
