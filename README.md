@@ -7,7 +7,8 @@
 - 前端：React 18 + Vite + TypeScript
 - 后端：Node.js（原生 http 模块）
 - AI：DeepSeek API（OpenAI 兼容）
-- 样式：CSS
+- 核心库：react-virtuoso（虚拟列表）、react-markdown、react-syntax-highlighter
+- 样式：内联 CSS
 
 ## 启动
 
@@ -65,6 +66,21 @@ npm run dev
 
 ### V5 — 富文本
 
-**V5.1** ReactMarkdown 渲染 AI 回复
+**V5.1** ReactMarkdown 渲染 AI 回复（加粗、列表、代码块等）
 
-**V5.2** 代码高亮
+**V5.2** react-syntax-highlighter + Prism oneDark 主题代码高亮
+
+### V6 — 虚拟列表 + 组件化
+
+**V6.1** 集成 react-virtuoso：只渲染可视区域消息，DOM 节点稳定在 ~20 个
+
+**V6.2** 智能滚动迁移到 Virtuoso API：requestAnimationFrame + 长度增长检测
+- 新消息出现 → 强制滚底（用户即使在看历史也跟过去）
+- AI 流式增长 → 尊重用户上翻状态
+
+**V6.3** 组件化拆分：App 只搭骨架，Sidebar / MessageList / ChatInput 各自管理本地状态
+
+**V6.4** 体验细节
+- 发送时一次性插入用户消息 + AI 空占位，消除"插入新消息"跳动
+- 用户消息右对齐蓝底，AI 消息左对齐灰底
+- 空对话状态显示引导文案
